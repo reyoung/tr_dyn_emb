@@ -1,0 +1,6 @@
+[submodule "src/3rd/smhasher"]
+	path = src/3rd/smhasher
+	url = https://github.com/aappleby/smhasher.git
+[submodule "src/3rd/Catch2"]
+	path = src/3rd/Catch2
+	url = https://github.com/catchorg/Catch2.git
