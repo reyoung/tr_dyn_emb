@@ -43,6 +43,7 @@ public:
       auto id = global_ids[i];
       HashValue value{};
       value.slot_ = static_cast<uint32_t>((slot_hash_(id) % num_cache_ids_) % alignment());
+      // use UINT8_MAX to identify empty slot, so check hash range is max-1
       value.check_ = static_cast<uint8_t>(check_hash_(id) % (std::numeric_limits<uint8_t>::max() - 1));
       value.offset_ = i;
       hash_values_.emplace_back(std::move(value));
