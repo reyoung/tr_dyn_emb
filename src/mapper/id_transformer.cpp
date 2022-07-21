@@ -24,23 +24,26 @@ IDTransformerThin::IDTransformerThin(size_t num_cache_ids) : checks_(reinterpret
 std::unique_ptr<int64_t[]> IDTransformerThin::Apply() {
   // does sort make faster?
   std::sort(hash_values_.begin(), hash_values_.end(), [](const HashValue &a, const HashValue &b) {
-    return a.slot_ < b.slot_;
+    return a.check_index_ < b.check_index_;
   });
 
   std::unique_ptr<int64_t[]> result(new int64_t[hash_values_.size()]);
 
   for (auto &hash_value : hash_values_) {
-    uint8_t *check_begin = &checks_[hash_value.check_ * alignment()];
+    uint32_t offset = hash_value.check_index_ % alignment();
+    uint32_t slot_id = hash_value.check_index_ / alignment();
+    uint8_t *check_begin = &checks_[slot_id * alignment()];
     uint32_t i = 0;
-    for (; i < alignment(); ++i) {  // TODO: Make it simd
-      if (check_begin[i] == std::numeric_limits<uint8_t>::max()) { // empty slot, fill it
+    for (; i < alignment(); ++i, ++offset) {  // TODO: Make it simd
+      offset %= alignment();
+      if (check_begin[offset] == std::numeric_limits<uint8_t>::max()) { // empty slot, fill it
         // TODO: fetch params?
-        check_begin[i] = hash_value.check_;
-        result[hash_value.offset_] = i + hash_value.slot_ * alignment();
+        check_begin[offset] = hash_value.check_;
+        result[hash_value.offset_] = i + hash_value.check_index_ * alignment();
         break;
       }
-      if (check_begin[i] == hash_value.check_) {  // found
-        result[hash_value.offset_] = i + hash_value.slot_ * alignment();
+      if (check_begin[offset] == hash_value.check_) {  // found
+        result[hash_value.offset_] = i + hash_value.check_index_ * alignment();
         break;
       }
       // not match, continue
