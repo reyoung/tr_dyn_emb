@@ -13,7 +13,7 @@ namespace details {
 template<typename T>
 class ZeroCheckVector {
 public:
-  static_assert(std::is_pod_v<T>);
+  static_assert(std::is_trivial_v<T>);
 
   void emplace_back(T v) {
     data_[size_++] = v;
