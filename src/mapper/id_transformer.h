@@ -58,6 +58,7 @@ protected:
   static_assert(sizeof(HashValue) == sizeof(uint64_t));
   std::vector<HashValue> hash_values_;
   details::ZeroCheckVector<int64_t> result_caches_;
+  std::unique_ptr<int8_t []> flag_cache_;
 };
 
 template<typename SlotHash, typename CheckHash>
