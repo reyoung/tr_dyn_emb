@@ -11,50 +11,48 @@ static void *AlignMalloc(size_t num_cache_ids, size_t align) {
   return ptr;
 }
 
-IDTransformerThin::IDTransformerThin(size_t num_cache_ids) : checks_(reinterpret_cast<uint8_t *>(
-                                                                         AlignMalloc(num_cache_ids, alignment())),
+IDTransformerThin::IDTransformerThin(size_t num_cache_ids) : checks_(reinterpret_cast<uint16_t *>(
+                                                                         AlignMalloc(num_cache_ids * sizeof(uint16_t),
+                                                                                     alignment())),
                                                                      free),
                                                              num_cache_ids_(num_cache_ids) {
-  if (num_cache_ids_ % alignment() != 0) [[unlikely]] {
+  if (num_cache_ids_ % (alignment() / sizeof(uint16_t)) != 0) [[unlikely]] {
     throw std::runtime_error("must be div by 64");
   }
-  std::fill(&checks_[0], &checks_[num_cache_ids_], std::numeric_limits<uint8_t>::max());
+  std::fill(&checks_[0], &checks_[num_cache_ids_], std::numeric_limits<uint16_t>::max());
 }
 
-std::unique_ptr<int64_t[]> IDTransformerThin::Apply() {
-  // does sort make faster?
-  std::sort(hash_values_.begin(), hash_values_.end(), [](const HashValue &a, const HashValue &b) {
-    return a.check_index_ < b.check_index_;
-  });
-
-  std::unique_ptr<int64_t[]> result(new int64_t[hash_values_.size()]);
-
-  for (auto &hash_value : hash_values_) {
-    uint32_t offset = hash_value.check_index_ % alignment();
-    uint32_t slot_id = hash_value.check_index_ / alignment();
-    uint8_t *check_begin = &checks_[slot_id * alignment()];
+std::span<const int64_t> IDTransformerThin::Apply() {
+  result_caches_.clear();
+  result_caches_.reserve(hash_values_.size());
+  for (size_t offset = 0; offset < hash_values_.size(); ++offset) {
+    auto &hash_value = hash_values_[offset];
+    constexpr size_t n_elems_per_slot = alignment() / sizeof(uint16_t);
+    uint32_t offset_in_slot_ = hash_value.check_index_ % n_elems_per_slot;
+    uint32_t slot_id = hash_value.check_index_ / n_elems_per_slot;
+    uint16_t *check_begin = &checks_[slot_id * n_elems_per_slot];
     uint32_t i = 0;
-    for (; i < alignment(); ++i, ++offset) {  // TODO: Make it simd
-      offset %= alignment();
-      if (check_begin[offset] == std::numeric_limits<uint8_t>::max()) { // empty slot, fill it
+    for (; i < n_elems_per_slot; ++i, ++offset_in_slot_) {  // TODO: Make it simd
+      offset_in_slot_ %= n_elems_per_slot;
+      if (check_begin[offset_in_slot_] == std::numeric_limits<uint16_t>::max()) { // empty slot, fill it
         // TODO: fetch params?
-        check_begin[offset] = hash_value.check_;
-        result[hash_value.offset_] = i + hash_value.check_index_ * alignment();
+        check_begin[offset_in_slot_] = hash_value.check_;
+        result_caches_.emplace_back(offset_in_slot_ + slot_id * n_elems_per_slot);
         break;
       }
-      if (check_begin[offset] == hash_value.check_) {  // found
-        result[hash_value.offset_] = i + hash_value.check_index_ * alignment();
+      if (check_begin[offset_in_slot_] == hash_value.check_) {  // found
+        result_caches_.emplace_back(offset_in_slot_ + slot_id * n_elems_per_slot);
         break;
       }
       // not match, continue
     }
 
-    if (i == alignment()) {
+    if (i == n_elems_per_slot) {
       // full, need evict
       throw std::runtime_error("need evict");
     }
   }
 
-  return result;
+  return result_caches_;
 }
 }
