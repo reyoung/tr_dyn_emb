@@ -21,7 +21,7 @@ protected:
   struct HashValue {
     uint8_t check_;
     uint32_t offset_: 24;
-    uint32_t slot_;
+    uint32_t check_index_;
   };
 
   static_assert(sizeof(HashValue) == sizeof(uint64_t));
@@ -42,7 +42,7 @@ public:
     for (uint32_t i = 0; i < global_ids.size(); ++i) {
       auto id = global_ids[i];
       HashValue value{};
-      value.slot_ = static_cast<uint32_t>((slot_hash_(id) % num_cache_ids_) % alignment());
+      value.check_index_ = static_cast<uint32_t>(slot_hash_(id) % num_cache_ids_);
       // use UINT8_MAX to identify empty slot, so check hash range is max-1
       value.check_ = static_cast<uint8_t>(check_hash_(id) % (std::numeric_limits<uint8_t>::max() - 1));
       value.offset_ = i;
