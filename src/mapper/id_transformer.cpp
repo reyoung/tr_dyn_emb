@@ -27,7 +27,10 @@ IDTransformerThin::IDTransformerThin(size_t num_cache_ids) : checks_(reinterpret
   std::fill(&flag_cache_[0], &flag_cache_[alignment()], 0);
 }
 
-static uint32_t SearchInSlot(uint16_t *slot_begin, uint16_t check, uint32_t n_elems_per_slot, uint32_t offset_hint) {
+static uint32_t SearchInSlot(uint16_t *__restrict__ __attribute__((aligned(64))) slot_begin,
+                             uint16_t check,
+                             uint32_t n_elems_per_slot,
+                             uint32_t offset_hint) {
   for (uint32_t i = 0; i < n_elems_per_slot; ++i) {
     if (slot_begin[offset_hint] == std::numeric_limits<uint16_t>::max()) {
       slot_begin[offset_hint] = check;
