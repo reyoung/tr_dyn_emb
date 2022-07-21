@@ -1,5 +1,6 @@
 #include "id_transformer.h"
 #include <string>
+#include <type_traits>
 
 namespace trde::mapper {
 
